@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🏀 Hoop Shot</title>
+  <style>
+    body{margin:0;background:#070b12;color:#fff;font-family:Arial;text-align:center}
+    header{padding:18px 10px}
+    h1{margin:0;font-size:34px}
+    p{margin:8px 0 0;color:#cbd5e1}
+    .bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:10px 0 0}
+    .chip{background:#111827;border:1px solid #ffffff1a;border-radius:999px;padding:8px 12px;min-width:130px}
+    button{margin:14px 6px 0;padding:10px 16px;border:0;border-radius:12px;font-weight:800;cursor:pointer}
+    .shoot{background:#ffb000;color:#0b1020}
+    .reset{background:#93c5fd;color:#0b1020}
+    canvas{display:block;margin:16px auto 26px;background:#0b0b0f;border-radius:18px;box-shadow:0 16px 40px rgba(0,0,0,.55)}
+    .hint{font-size:13px;opacity:.75;margin-top:-14px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏀 Hoop Shot</h1>
+    <p>Click and drag to aim, then release to shoot. Score as many 3s as you can!</p>
+    <div class="bar">
+      <div class="chip">Score: <b id="score">0</b></div>
+      <div class="chip">Shots: <b id="shots">0</b></div>
+      <div class="chip">Time: <b id="time">30</b>s</div>
+    </div>
+    <div>
+      <button class="shoot" id="startBtn">Start / Shoot</button>
+      <button class="reset" onclick="resetGame()">Reset</button>
+    </div>
+    <div class="hint">Tip: Drag longer = more power. Aim higher for distance.</div>
+  </header>
+
+  <canvas id="cv" width="820" height="480"></canvas>
+
+  <script>
+    const cv = document.getElementById("cv");
+    const ctx = cv.getContext("2d");
+
+    const scoreEl = document.getElementById("score");
+    const shotsEl = document.getElementById("shots");
+    const timeEl  = document.getElementById("time");
+    const startBtn = document.getElementById("startBtn");
+
+    // Court + hoop
+    const hoop = { x: 690, y: 140, r: 18 };
+    const rim = { x: 690, y: 165, w: 70, h: 6 };
+    const backboard = { x: 735, y: 95, w: 8, h: 120 };
+
+    // Ball
+    let ball = null; // {x,y,vx,vy}
+    let dragging = false;
+    let dragStart = null;
+    let dragNow = null;
+
+    let score = 0, shots = 0;
+    let timeLeft = 30;
+    let running = false;
+    let timerId = null;
+
+    function drawCourt(){
+      // background
+      ctx.clearRect(0,0,cv.width,cv.height);
+      ctx.fillStyle = "#0b0b0f";
+      ctx.fillRect(0,0,cv.width,cv.height);
+
+      // floor
+      ctx.fillStyle = "#111827";
+      ctx.fillRect(0,340,cv.width,140);
+
+      // 3pt arc-ish
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(120, 360, 230, Math.PI*1.15, Math.PI*1.95);
+      ctx.stroke();
+
+      // hoop + backboard
+      ctx.fillStyle = "#e5e7eb";
+      ctx.fillRect(backboard.x, backboard.y, backboard.w, backboard.h);
+
+      // rim
+      ctx.fillStyle = "#f97316";
+      ctx.fillRect(rim.x, rim.y, rim.w, rim.h);
+
+      // net (simple)
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 2;
+      for(let i=0;i<6;i++){
+        ctx.beginPath();
+        ctx.moveTo(rim.x + i*(rim.w/5), rim.y+rim.h);
+        ctx.lineTo(rim.x + rim.w/2, rim.y+55);
+        ctx.stroke();
+      }
+
+      // aim line
+      if(dragging && dragStart && dragNow){
+        ctx.strokeStyle = "rgba(255,176,0,0.75)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(dragStart.x, dragStart.y);
+        ctx.lineTo(dragNow.x, dragNow.y);
+        ctx.stroke();
+      }
+
+      // ball
+      if(ball){
+        ctx.fillStyle="#ffb000";
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, 12, 0, Math.PI*2);
+        ctx.fill();
+
+        // ball lines
+        ctx.strokeStyle="rgba(0,0,0,0.25)";
+        ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, 10, -0.5, 1.2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, 10, 2.0, 3.6); ctx.stroke();
+      } else {
+        // resting ball spot
+        ctx.fillStyle="rgba(255,176,0,0.85)";
+        ctx.beginPath();
+        ctx.arc(120, 330, 12, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // hoop target highlight
+      ctx.strokeStyle="rgba(249,115,22,0.35)";
+      ctx.lineWidth=6;
+      ctx.beginPath();
+      ctx.arc(hoop.x + rim.w/2, hoop.y+35, 55, 0, Math.PI*2);
+      ctx.stroke();
+    }
+
+    function spawnBall(){
+      ball = { x: 120, y: 330, vx: 0, vy: 0, scored:false };
+    }
+
+    function resetGame(){
+      score = 0; shots = 0; timeLeft = 30;
+      running = false;
+      if(timerId) clearInterval(timerId);
+      timerId = null;
+      dragging = false; dragStart = null; dragNow = null;
+      ball = null;
+      scoreEl.textContent = score;
+      shotsEl.textContent = shots;
+      timeEl.textContent = timeLeft;
+      startBtn.textContent = "Start / Shoot";
+      drawCourt();
+    }
+
+    function start(){
+      if(running) return;
+      running = true;
+      startBtn.textContent = "Shoot";
+      if(!ball) spawnBall();
+      timerId = setInterval(()=>{
+        timeLeft--;
+        timeEl.textContent = timeLeft;
+        if(timeLeft <= 0){
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function endGame(){
+      running = false;
+      if(timerId) clearInterval(timerId);
+      timerId = null;
+      startBtn.textContent = "Time Up!";
+      setTimeout(()=>alert(`Time! Final score: ${score} (shots: ${shots})`), 50);
+    }
+
+    function shootFromDrag(){
+      if(!running) start();
+      if(!ball) spawnBall();
+      if(!dragStart || !dragNow) return;
+
+      // Convert drag vector into velocity
+      const dx = (dragStart.x - dragNow.x);
+      const dy = (dragStart.y - dragNow.y);
+
+      // power clamp
+      const power = Math.min(18, Math.max(4, Math.hypot(dx, dy) / 12));
+      const angle = Math.atan2(dy, dx); // aim direction
+
+      ball.vx = Math.cos(angle) * power;
+      ball.vy = Math.sin(angle) * power * -1; // up is negative y
+      shots++;
+      shotsEl.textContent = shots;
+    }
+
+    function physics(){
+      if(!ball || !running) return;
+
+      // gravity
+      ball.vy += 0.45;
+
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // bounce off floor
+      if(ball.y > 340 - 12){
+        ball.y = 340 - 12;
+        ball.vy *= -0.45;
+        ball.vx *= 0.85;
+      }
+
+      // bounce off walls
+      if(ball.x < 12){ ball.x = 12; ball.vx *= -0.6; }
+      if(ball.x > cv.width-12){ ball.x = cv.width-12; ball.vx *= -0.6; }
+
+      // backboard collision (simple)
+      if(ball.x > backboard.x-12 && ball.x < backboard.x+backboard.w+12
+         && ball.y > backboard.y-12 && ball.y < backboard.y+backboard.h+12){
+        ball.vx *= -0.7;
+        ball.x = backboard.x-13;
+      }
+
+      // rim top collision
+      if(ball.x > rim.x-12 && ball.x < rim.x+rim.w+12 &&
+         ball.y > rim.y-12 && ball.y < rim.y+rim.h+12){
+        ball.vy *= -0.5;
+        ball.vx *= 0.85;
+      }
+
+      // score detection: ball passes through rim area downward
+      const rimCenterX = rim.x + rim.w/2;
+      const inRimX = Math.abs(ball.x - rimCenterX) < 22;
+      const passingDown = ball.vy > 0;
+      const nearRimY = ball.y > rim.y-10 && ball.y < rim.y+28;
+
+      if(!ball.scored && inRimX && nearRimY && passingDown){
+        ball.scored = true;
+        score += 3;
+        scoreEl.textContent = score;
+      }
+
+      // reset ball if it slows a lot
+      const slow = Math.abs(ball.vx) + Math.abs(ball.vy) < 0.9;
+      if(slow && ball.y >= 340-12){
+        spawnBall();
+      }
+    }
+
+    // Input: click-drag to aim
+    cv.addEventListener("pointerdown",(e)=>{
+      const rect = cv.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (cv.width/rect.width);
+      const y = (e.clientY - rect.top) * (cv.height/rect.height);
+      dragging = true;
+      dragStart = {x: 120, y: 330};
+      dragNow = {x, y};
+      if(!ball) spawnBall();
+    });
+
+    cv.addEventListener("pointermove",(e)=>{
+      if(!dragging) return;
+      const rect = cv.getBoundingClientRect();
+      const x = (e.clientX - rect.left) * (cv.width/rect.width);
+      const y = (e.clientY - rect.top) * (cv.height/rect.height);
+      dragNow = {x, y};
+    });
+
+    cv.addEventListener("pointerup",()=>{
+      if(!dragging) return;
+      dragging = false;
+      shootFromDrag();
+      dragStart = null;
+      dragNow = null;
+    });
+
+    startBtn.addEventListener("click",()=>{
+      if(!running) start();
+    });
+
+    function loop(){
+      physics();
+      drawCourt();
+      requestAnimationFrame(loop);
+    }
+
+    resetGame();
+    loop();
+  </script>
+</body>
+</html>
