@@ -1,12 +1,234 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My Game Website</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Roll to Win - Board Game</title>
+  <style>
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:#0b0b0f;
+      color:#fff;
+      text-align:center;
+    }
+    header{
+      padding:24px 12px 8px;
+    }
+    h1{ margin:0; font-size:32px; }
+    p{ margin:10px 0; color:#cfcfe6; }
+    .wrap{
+      max-width:900px;
+      margin:0 auto;
+      padding:10px 14px 30px;
+    }
+    .panel{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      justify-content:center;
+      align-items:center;
+      margin:14px 0 10px;
+    }
+    button{
+      padding:12px 18px;
+      font-size:16px;
+      border:none;
+      border-radius:12px;
+      cursor:pointer;
+      background:#6c5ce7;
+      color:white;
+      font-weight:700;
+    }
+    button:active{ transform: scale(0.98); }
+    .small{
+      background:#2d2d3a;
+      font-weight:600;
+    }
+    .stats{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+      margin-top:10px;
+    }
+    .chip{
+      background:#171724;
+      border:1px solid #2a2a3a;
+      border-radius:999px;
+      padding:8px 12px;
+      color:#e9e9ff;
+      font-size:14px;
+      min-width:140px;
+    }
+    #board{
+      display:grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap:10px;
+      max-width:520px;
+      margin:18px auto 0;
+      padding:14px;
+      background:#12121a;
+      border:1px solid #2a2a3a;
+      border-radius:18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    .cell{
+      aspect-ratio: 1 / 1;
+      border-radius:14px;
+      background:#1b1b27;
+      border:1px solid #2a2a3a;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      font-weight:800;
+      color:#9ea0c9;
+      user-select:none;
+    }
+    .cell .tag{
+      position:absolute;
+      bottom:6px;
+      font-size:11px;
+      font-weight:700;
+      opacity:0.85;
+      color:#cfcfe6;
+    }
+    .p1{ outline:3px solid #00d2ff; }
+    .p2{ outline:3px solid #ffb000; }
+    .start{ background:#103a2a; color:#a7ffd8; }
+    .finish{ background:#3a1030; color:#ffb3ea; }
+    .trap{ background:#3a2a10; color:#ffd48a; }
+    .boost{ background:#0f2a3a; color:#9fe2ff; }
+    footer{ opacity:0.7; font-size:12px; padding:10px 0 20px; }
+  </style>
 </head>
-<body style="text-align:center; font-family:Arial; background:black; color:white;">
+<body>
+  <header>
+    <h1>🎲 Roll to Win</h1>
+    <p>A tiny board game (2 players). Roll the dice, hit boosts/traps, reach the finish!</p>
+  </header>
 
-<h1>🎮 My Game Website</h1>
-<p>This is my own website!</p>
+  <div class="wrap">
+    <div class="panel">
+      <button id="rollBtn" onclick="roll()">Roll Dice</button>
+      <button class="small" onclick="resetGame()">Reset</button>
+    </div>
 
+    <div class="stats">
+      <div class="chip">Turn: <b id="turnText">Player 1</b></div>
+      <div class="chip">Dice: <b id="diceText">-</b></div>
+      <div class="chip">Player 1: <b id="p1Text">1</b></div>
+      <div class="chip">Player 2: <b id="p2Text">1</b></div>
+    </div>
+
+    <div id="board"></div>
+
+    <footer>
+      Tip: Boost squares move you forward. Trap squares move you back.
+    </footer>
+  </div>
+
+  <script>
+    const SIZE = 20;            // squares 1..20
+    const WIN = 20;
+
+    // special squares
+    const boosts = { 4: +3, 9: +2, 14: +3, 18: +1 };
+    const traps  = { 6: -2, 11: -3, 16: -2 };
+
+    let p1 = 1, p2 = 1;
+    let turn = 1; // 1 or 2
+
+    const boardEl = document.getElementById("board");
+    const turnText = document.getElementById("turnText");
+    const diceText = document.getElementById("diceText");
+    const p1Text = document.getElementById("p1Text");
+    const p2Text = document.getElementById("p2Text");
+
+    function buildBoard(){
+      boardEl.innerHTML = "";
+      for(let i=1;i<=SIZE;i++){
+        const d = document.createElement("div");
+        d.className = "cell";
+        d.dataset.n = i;
+        d.textContent = i;
+
+        if(i === 1){ d.classList.add("start"); d.insertAdjacentHTML("beforeend", `<div class="tag">START</div>`); }
+        if(i === WIN){ d.classList.add("finish"); d.insertAdjacentHTML("beforeend", `<div class="tag">FINISH</div>`); }
+
+        if(boosts[i]){
+          d.classList.add("boost");
+          d.insertAdjacentHTML("beforeend", `<div class="tag">BOOST +${boosts[i]}</div>`);
+        }
+        if(traps[i]){
+          d.classList.add("trap");
+          d.insertAdjacentHTML("beforeend", `<div class="tag">TRAP ${traps[i]}</div>`);
+        }
+        boardEl.appendChild(d);
+      }
+    }
+
+    function clamp(n){
+      if(n < 1) return 1;
+      if(n > WIN) return WIN;
+      return n;
+    }
+
+    function updateUI(){
+      // clear markers
+      document.querySelectorAll(".cell").forEach(c=>{
+        c.classList.remove("p1","p2");
+      });
+      // set markers
+      document.querySelector(`.cell[data-n="${p1}"]`)?.classList.add("p1");
+      document.querySelector(`.cell[data-n="${p2}"]`)?.classList.add("p2");
+
+      turnText.textContent = (turn === 1) ? "Player 1" : "Player 2";
+      p1Text.textContent = p1;
+      p2Text.textContent = p2;
+    }
+
+    function applySpecialSquare(pos){
+      if(boosts[pos]) return clamp(pos + boosts[pos]);
+      if(traps[pos])  return clamp(pos + traps[pos]);
+      return pos;
+    }
+
+    function roll(){
+      const dice = Math.floor(Math.random()*6)+1;
+      diceText.textContent = dice;
+
+      if(turn === 1){
+        p1 = clamp(p1 + dice);
+        p1 = applySpecialSquare(p1);
+        if(p1 >= WIN){
+          updateUI();
+          setTimeout(()=>alert("🎉 Player 1 wins!"), 50);
+          return;
+        }
+        turn = 2;
+      } else {
+        p2 = clamp(p2 + dice);
+        p2 = applySpecialSquare(p2);
+        if(p2 >= WIN){
+          updateUI();
+          setTimeout(()=>alert("🎉 Player 2 wins!"), 50);
+          return;
+        }
+        turn = 1;
+      }
+      updateUI();
+    }
+
+    function resetGame(){
+      p1 = 1; p2 = 1; turn = 1;
+      diceText.textContent = "-";
+      updateUI();
+    }
+
+    buildBoard();
+    updateUI();
+  </script>
 </body>
 </html>
