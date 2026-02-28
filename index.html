@@ -1,424 +1,289 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>🏀 Court Run - Roll to Win</title>
-  <style>
-    :root{
-      --bg1:#050608;
-      --bg2:#0c1018;
-      --wood1:#7a3f18;
-      --wood2:#8c4a1b;
-      --wood3:#a85a23;
-      --line:#f3f0e6;
-      --panel:#111827cc;
-      --panelBorder:#ffffff1f;
-
-      --p1:#00d2ff;   /* Player 1 (blue) */
-      --p2:#ffb000;   /* Player 2 (gold) */
-
-      --boost:#0ea5e9; /* fast break */
-      --trap:#f97316;  /* turnover */
-      --finish:#ef4444;/* buzzer */
-    }
-
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      color:#fff;
-      text-align:center;
-      background:
-        radial-gradient(1200px 800px at 50% -10%, #1f2937 0%, transparent 60%),
-        linear-gradient(180deg, var(--bg2), var(--bg1));
-      min-height:100vh;
-      overflow-x:hidden;
-    }
-
-    /* Court vibe */
-    .courtGlow{
-      position:fixed;
-      inset:-30vh -30vw;
-      background:
-        radial-gradient(600px 400px at 50% 35%, rgba(14,165,233,0.16), transparent 60%),
-        radial-gradient(520px 380px at 35% 70%, rgba(255,176,0,0.13), transparent 60%),
-        radial-gradient(520px 380px at 65% 70%, rgba(239,68,68,0.12), transparent 60%);
-      pointer-events:none;
-      filter: blur(0px);
-      z-index:-2;
-    }
-
-    header{
-      padding:22px 12px 8px;
-    }
-    h1{
-      margin:0;
-      font-size:34px;
-      letter-spacing:0.2px;
-      text-shadow: 0 8px 30px rgba(0,0,0,0.5);
-    }
-    .sub{
-      margin:10px auto 0;
-      max-width:780px;
-      color:#d7def1;
-      opacity:0.9;
-      line-height:1.35;
-      font-size:14.5px;
-    }
-
-    .wrap{
-      max-width:980px;
-      margin:0 auto;
-      padding:10px 14px 30px;
-    }
-
-    .panel{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      justify-content:center;
-      align-items:center;
-      margin:14px 0 12px;
-    }
-
-    button{
-      padding:12px 18px;
-      font-size:16px;
-      border:none;
-      border-radius:14px;
-      cursor:pointer;
-      color:#0b1020;
-      font-weight:900;
-      background: linear-gradient(180deg, #ffd26a, #ffb000);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
-    }
-    button:hover{ filter: brightness(1.03); }
-    button:active{ transform: scale(0.98); }
-
-    .small{
-      background: linear-gradient(180deg, #c7d2fe, #93c5fd);
-      font-weight:800;
-    }
-
-    .stats{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      justify-content:center;
-      margin-top:8px;
-    }
-    .chip{
-      background: var(--panel);
-      border:1px solid var(--panelBorder);
-      border-radius:999px;
-      padding:8px 12px;
-      color:#eaf0ff;
-      font-size:14px;
-      min-width:150px;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
-      backdrop-filter: blur(8px);
-    }
-    .chip b{ color:#fff; }
-
-    /* BOARD (wood court) */
-    #board{
-      width:min(560px, 94vw);
-      margin:18px auto 0;
-      padding:14px;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,0.16);
-      background:
-        linear-gradient(90deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 100%),
-        repeating-linear-gradient(
-          90deg,
-          rgba(0,0,0,0.10) 0 2px,
-          rgba(0,0,0,0.00) 2px 18px
-        ),
-        linear-gradient(135deg, var(--wood1), var(--wood3));
-      box-shadow: 0 18px 50px rgba(0,0,0,0.42);
-      position:relative;
-      overflow:hidden;
-    }
-
-    /* Court lines overlay */
-    #board::before{
-      content:"";
-      position:absolute;
-      inset:10px;
-      border-radius:16px;
-      border:2px solid rgba(243,240,230,0.22);
-      pointer-events:none;
-    }
-    #board::after{
-      content:"";
-      position:absolute;
-      left:50%;
-      top:10px;
-      bottom:10px;
-      width:0;
-      border-left:2px dashed rgba(243,240,230,0.22);
-      transform: translateX(-50%);
-      pointer-events:none;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap:10px;
-      position:relative;
-      z-index:1;
-    }
-
-    .cell{
-      aspect-ratio: 1 / 1;
-      border-radius:16px;
-      background: rgba(17,24,39,0.70);
-      border:1px solid rgba(255,255,255,0.14);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      position:relative;
-      font-weight:1000;
-      letter-spacing:0.2px;
-      color:#dbe6ff;
-      user-select:none;
-      overflow:hidden;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-    }
-
-    .cell .tag{
-      position:absolute;
-      bottom:7px;
-      font-size:11px;
-      font-weight:900;
-      opacity:0.9;
-      color:#eaf0ff;
-    }
-
-    .start{
-      background: linear-gradient(180deg, rgba(34,197,94,0.28), rgba(17,24,39,0.72));
-      border-color: rgba(34,197,94,0.35);
-    }
-    .finish{
-      background: linear-gradient(180deg, rgba(239,68,68,0.30), rgba(17,24,39,0.72));
-      border-color: rgba(239,68,68,0.45);
-    }
-    .boost{
-      background: linear-gradient(180deg, rgba(14,165,233,0.30), rgba(17,24,39,0.72));
-      border-color: rgba(14,165,233,0.40);
-    }
-    .trap{
-      background: linear-gradient(180deg, rgba(249,115,22,0.30), rgba(17,24,39,0.72));
-      border-color: rgba(249,115,22,0.45);
-    }
-
-    /* Player markers */
-    .marker{
-      position:absolute;
-      top:8px;
-      left:8px;
-      width:30px;
-      height:30px;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:18px;
-      font-weight:1000;
-      box-shadow: 0 12px 24px rgba(0,0,0,0.35);
-      border:2px solid rgba(255,255,255,0.28);
-    }
-    .m1{ background: rgba(0,210,255,0.95); color:#06111a; }
-    .m2{ background: rgba(255,176,0,0.95); color:#1a1206; }
-
-    /* If both players in same cell */
-    .stack{
-      position:absolute;
-      top:8px;
-      right:8px;
-      width:30px;
-      height:30px;
-      border-radius:999px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:16px;
-      font-weight:1000;
-      box-shadow: 0 12px 24px rgba(0,0,0,0.35);
-      border:2px solid rgba(255,255,255,0.28);
-      background: rgba(255,255,255,0.10);
-      color:#fff;
-    }
-
-    .legend{
-      margin:14px auto 0;
-      font-size:12.5px;
-      opacity:0.85;
-      color:#d7def1;
-      max-width:740px;
-      line-height:1.35;
-    }
-    .legend b{ color:#fff; }
-
-    footer{
-      opacity:0.65;
-      font-size:12px;
-      padding:12px 0 18px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🏀 Dunk Simulator</title>
+<style>
+  body{margin:0;background:#0b0f18;color:#fff;text-align:center;font-family:Arial}
+  h1{margin:18px 0 4px}
+  .score{font-size:20px;margin-top:6px}
+  .tip{opacity:.75;margin:6px 0 10px;font-size:14px}
+  canvas{
+    display:block;margin:10px auto 10px;
+    background:#111827;border-radius:20px;
+    box-shadow:0 20px 50px rgba(0,0,0,.6);
+    max-width:96vw;height:auto;
+  }
+  .controls{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;padding:10px 12px 18px}
+  .btn{padding:12px 16px;border-radius:14px;border:0;font-weight:800;cursor:pointer;background:#1f2937;color:#fff;min-width:90px}
+  .btn.jump{background:#f59e0b;color:#0b1020}
+</style>
 </head>
 <body>
-  <div class="courtGlow"></div>
+<h1>🏀 Dunk Simulator</h1>
+<div class="score">Score: <span id="score">0</span></div>
+<div class="tip">Move: A/D or ←/→ • Jump: Space • Score only when the BALL goes through the rim</div>
 
-  <header>
-    <h1>🏀 Court Run</h1>
-    <div class="sub">
-      2 players. Roll the dice, get <b>Fast Break</b> boosts, avoid <b>Turnovers</b>, and hit the <b>Buzzer Beater</b> at 20!
-    </div>
-  </header>
+<canvas id="game" width="800" height="450"></canvas>
 
-  <div class="wrap">
-    <div class="panel">
-      <button id="rollBtn" onclick="roll()">🏀 Roll Dice</button>
-      <button class="small" onclick="resetGame()">↩ Reset</button>
-    </div>
+<div class="controls">
+  <button class="btn" id="leftBtn">⬅ Left</button>
+  <button class="btn jump" id="jumpBtn">⤴ Jump</button>
+  <button class="btn" id="rightBtn">Right ➡</button>
+</div>
 
-    <div class="stats">
-      <div class="chip">Possession: <b id="turnText">Player 1</b></div>
-      <div class="chip">Dice: <b id="diceText">-</b></div>
-      <div class="chip">Player 1 (🔵): <b id="p1Text">1</b></div>
-      <div class="chip">Player 2 (🟡): <b id="p2Text">1</b></div>
-    </div>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const scoreEl = document.getElementById("score");
 
-    <div id="board">
-      <div class="grid" id="grid"></div>
-    </div>
+const floorY = 350;
+const gravity = 0.6;
 
-    <div class="legend">
-      <b>FAST BREAK</b> squares push you forward. <b>TURNOVER</b> squares send you back.
-      First to <b>20 (BUZZER)</b> wins.
-    </div>
+let score = 0;
+let flash = 0;
 
-    <footer>Made on GitHub Pages • Edit <code>index.html</code> anytime to add more games.</footer>
-  </div>
+const keys = { left:false, right:false };
 
-  <script>
-    const SIZE = 20;            // squares 1..20
-    const WIN = 20;
+const player = {
+  x: 140, y: 300, r: 22,
+  vy: 0, speed: 5,
+  onGround: true
+};
 
-    // Basketball themed special squares
-    // (You can change these numbers anytime.)
-    const boosts = { 4: +3, 9: +2, 14: +3, 18: +1 };   // Fast Break
-    const traps  = { 6: -2, 11: -3, 16: -2 };          // Turnover
+// Hoop (real rim circle + backboard)
+const hoop = {
+  x: 640,
+  y: 170,
+  rimR: 18,            // rim radius
+  boardX: 690,
+  boardY: 85,
+  boardW: 10,
+  boardH: 120
+};
 
-    let p1 = 1, p2 = 1;
-    let turn = 1; // 1 or 2
+// Ball (separate physics)
+let ball = {
+  x: player.x + 18,
+  y: player.y - 24,
+  r: 10,
+  vx: 0,
+  vy: 0,
+  held: true,          // held by player until release
+  lastY: 0,
+  scoredThisShot: false
+};
 
-    const gridEl = document.getElementById("grid");
-    const turnText = document.getElementById("turnText");
-    const diceText = document.getElementById("diceText");
-    const p1Text = document.getElementById("p1Text");
-    const p2Text = document.getElementById("p2Text");
+// dunk release control (prevents auto-spam)
+let canRelease = true;
 
-    function buildBoard(){
-      gridEl.innerHTML = "";
-      for(let i=1;i<=SIZE;i++){
-        const d = document.createElement("div");
-        d.className = "cell";
-        d.dataset.n = i;
-        d.textContent = i;
+function resetBallHeld(){
+  ball.held = true;
+  ball.vx = 0; ball.vy = 0;
+  ball.scoredThisShot = false;
+}
 
-        if(i === 1){
-          d.classList.add("start");
-          d.insertAdjacentHTML("beforeend", `<div class="tag">TIP-OFF</div>`);
-        }
-        if(i === WIN){
-          d.classList.add("finish");
-          d.insertAdjacentHTML("beforeend", `<div class="tag">BUZZER</div>`);
-        }
+function respawnHoop(){
+  hoop.x = 420 + Math.random()*320;
+  hoop.boardX = hoop.x + 50;
+}
 
-        if(boosts[i]){
-          d.classList.add("boost");
-          d.insertAdjacentHTML("beforeend", `<div class="tag">FAST BREAK +${boosts[i]}</div>`);
-        }
-        if(traps[i]){
-          d.classList.add("trap");
-          d.insertAdjacentHTML("beforeend", `<div class="tag">TURNOVER ${traps[i]}</div>`);
-        }
-        gridEl.appendChild(d);
-      }
-    }
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-    function clamp(n){
-      if(n < 1) return 1;
-      if(n > WIN) return WIN;
-      return n;
-    }
+  // floor
+  ctx.fillStyle="#1f2937";
+  ctx.fillRect(0,floorY,canvas.width,canvas.height-floorY);
 
-    function clearMarkers(cell){
-      cell.querySelectorAll(".marker,.stack").forEach(el=>el.remove());
-    }
+  // backboard
+  ctx.fillStyle="#e5e7eb";
+  ctx.fillRect(hoop.boardX, hoop.boardY, hoop.boardW, hoop.boardH);
 
-    function updateUI(){
-      document.querySelectorAll(".cell").forEach(c=>clearMarkers(c));
+  // rim (full circle)
+  ctx.strokeStyle="#f97316";
+  ctx.lineWidth=6;
+  ctx.beginPath();
+  ctx.arc(hoop.x, hoop.y, hoop.rimR, 0, Math.PI*2);
+  ctx.stroke();
 
-      const c1 = document.querySelector(`.cell[data-n="${p1}"]`);
-      const c2 = document.querySelector(`.cell[data-n="${p2}"]`);
+  // net (simple)
+  ctx.strokeStyle="rgba(255,255,255,0.25)";
+  ctx.lineWidth=2;
+  for(let i=-2;i<=2;i++){
+    ctx.beginPath();
+    ctx.moveTo(hoop.x + i*6, hoop.y + hoop.rimR);
+    ctx.lineTo(hoop.x + i*3, hoop.y + hoop.rimR + 38);
+    ctx.stroke();
+  }
 
-      if(c1 && c2 && p1 === p2){
-        // both on same square
-        c1.insertAdjacentHTML("afterbegin", `<div class="marker m1">🏀</div>`);
-        c1.insertAdjacentHTML("afterbegin", `<div class="stack">x2</div>`);
-      } else {
-        if(c1) c1.insertAdjacentHTML("afterbegin", `<div class="marker m1">🏀</div>`);
-        if(c2) c2.insertAdjacentHTML("afterbegin", `<div class="marker m2">⛹️</div>`);
-      }
+  // dunk flash
+  if(flash>0){
+    ctx.fillStyle="rgba(255,176,0,0.22)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    flash--;
+  }
 
-      turnText.textContent = (turn === 1) ? "Player 1" : "Player 2";
-      p1Text.textContent = p1;
-      p2Text.textContent = p2;
-    }
+  // player
+  ctx.fillStyle="#06b6d4";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI*2);
+  ctx.fill();
 
-    function applySpecialSquare(pos){
-      if(boosts[pos]) return clamp(pos + boosts[pos]);
-      if(traps[pos])  return clamp(pos + traps[pos]);
-      return pos;
-    }
+  // ball
+  ctx.fillStyle="#ffb000";
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2);
+  ctx.fill();
+  // ball lines
+  ctx.strokeStyle="rgba(0,0,0,0.25)";
+  ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r-2, -0.6, 1.2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r-2, 2.0, 3.7); ctx.stroke();
 
-    function roll(){
-      const dice = Math.floor(Math.random()*6)+1;
-      diceText.textContent = dice;
+  // little target hint under hoop
+  ctx.fillStyle="rgba(255,255,255,0.08)";
+  ctx.fillRect(hoop.x-40, floorY-6, 80, 6);
+}
 
-      if(turn === 1){
-        p1 = clamp(p1 + dice);
-        p1 = applySpecialSquare(p1);
-        updateUI();
-        if(p1 >= WIN){
-          setTimeout(()=>alert("🏆 Player 1 hits the BUZZER BEATER!"), 50);
-          return;
-        }
-        turn = 2;
-      } else {
-        p2 = clamp(p2 + dice);
-        p2 = applySpecialSquare(p2);
-        updateUI();
-        if(p2 >= WIN){
-          setTimeout(()=>alert("🏆 Player 2 hits the BUZZER BEATER!"), 50);
-          return;
-        }
-        turn = 1;
-      }
-      updateUI();
-    }
+function updatePlayer(){
+  if(keys.left)  player.x -= player.speed;
+  if(keys.right) player.x += player.speed;
+  player.x = Math.max(player.r, Math.min(canvas.width-player.r, player.x));
 
-    function resetGame(){
-      p1 = 1; p2 = 1; turn = 1;
-      diceText.textContent = "-";
-      updateUI();
-    }
+  player.vy += gravity;
+  player.y += player.vy;
 
-    buildBoard();
-    updateUI();
-  </script>
+  if(player.y >= 300){
+    player.y = 300;
+    player.vy = 0;
+    player.onGround = true;
+    canRelease = true;      // allow a new dunk attempt
+    // if ball is still not held, pick it up automatically on landing
+    if(!ball.held) resetBallHeld();
+  } else {
+    player.onGround = false;
+  }
+}
+
+function releaseBallIfDunkAttempt(){
+  // Release ball only once per jump, when near rim and high enough
+  if(!ball.held || !canRelease) return;
+
+  const nearRimX = Math.abs(player.x - hoop.x) < 40;
+  const highEnough = player.y < hoop.y + 45;
+
+  if(nearRimX && highEnough){
+    ball.held = false;
+    canRelease = false;
+
+    // Give ball a little forward/up pop toward rim (feels like dunk)
+    const dir = (hoop.x - player.x);
+    ball.vx = dir * 0.12;   // auto-assist toward hoop
+    ball.vy = -6.5;
+  }
+}
+
+function updateBall(){
+  ball.lastY = ball.y;
+
+  if(ball.held){
+    // follow player hand
+    ball.x = player.x + 18;
+    ball.y = player.y - 24;
+    return;
+  }
+
+  // physics
+  ball.vy += gravity;
+  ball.x += ball.vx;
+  ball.y += ball.vy;
+
+  // bounce off floor
+  if(ball.y > floorY - ball.r){
+    ball.y = floorY - ball.r;
+    ball.vy *= -0.35;
+    ball.vx *= 0.85;
+  }
+
+  // bounce off walls
+  if(ball.x < ball.r){ ball.x = ball.r; ball.vx *= -0.6; }
+  if(ball.x > canvas.width-ball.r){ ball.x = canvas.width-ball.r; ball.vx *= -0.6; }
+
+  // backboard bounce
+  if(ball.x + ball.r > hoop.boardX && ball.x - ball.r < hoop.boardX + hoop.boardW &&
+     ball.y + ball.r > hoop.boardY && ball.y - ball.r < hoop.boardY + hoop.boardH){
+    ball.vx *= -0.7;
+    ball.x = hoop.boardX - ball.r - 1;
+  }
+
+  // SCORE: ball passes through rim circle area while moving downward
+  const dx = ball.x - hoop.x;
+  const dy = ball.y - hoop.y;
+  const dist = Math.hypot(dx, dy);
+
+  const enteringDown = (ball.lastY < hoop.y) && (ball.y >= hoop.y); // crossed center downward
+  const insideRim = dist < (hoop.rimR - 1); // slightly smaller than rim
+  if(!ball.scoredThisShot && enteringDown && insideRim && ball.vy > 0){
+    ball.scoredThisShot = true;
+    score++;
+    scoreEl.textContent = score;
+    flash = 12;
+
+    // new hoop position, and reset ball to player when you land
+    respawnHoop();
+  }
+
+  // If ball goes too high off-screen, bring it back a bit (keeps game friendly)
+  if(ball.y < -200){
+    ball.y = -200;
+    ball.vy = 0;
+  }
+}
+
+function jump(){
+  if(player.onGround){
+    player.vy = -14;
+    player.onGround = false;
+  }
+}
+
+function loop(){
+  updatePlayer();
+  releaseBallIfDunkAttempt();
+  updateBall();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// keyboard
+document.addEventListener("keydown",(e)=>{
+  if(e.code==="ArrowLeft" || e.code==="KeyA") keys.left=true;
+  if(e.code==="ArrowRight" || e.code==="KeyD") keys.right=true;
+  if(e.code==="Space") jump();
+});
+document.addEventListener("keyup",(e)=>{
+  if(e.code==="ArrowLeft" || e.code==="KeyA") keys.left=false;
+  if(e.code==="ArrowRight" || e.code==="KeyD") keys.right=false;
+});
+
+// mobile buttons
+const leftBtn = document.getElementById("leftBtn");
+const rightBtn = document.getElementById("rightBtn");
+const jumpBtn = document.getElementById("jumpBtn");
+
+function hold(btn, onDown, onUp){
+  btn.addEventListener("pointerdown", (e)=>{ e.preventDefault(); onDown(); });
+  btn.addEventListener("pointerup", (e)=>{ e.preventDefault(); onUp(); });
+  btn.addEventListener("pointerleave", (e)=>{ e.preventDefault(); onUp(); });
+  btn.addEventListener("pointercancel", (e)=>{ e.preventDefault(); onUp(); });
+}
+hold(leftBtn, ()=>keys.left=true, ()=>keys.left=false);
+hold(rightBtn, ()=>keys.right=true, ()=>keys.right=false);
+jumpBtn.addEventListener("click", jump);
+
+respawnHoop();
+loop();
+</script>
 </body>
 </html>
